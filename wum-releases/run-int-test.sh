@@ -1,4 +1,3 @@
-#!/bin/bash
 #----------------------------------------------------------------------------
 #  Copyright (c) 2020 WSO2, Inc. http://www.wso2.org
 #
@@ -14,17 +13,24 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #----------------------------------------------------------------------------
-set -o xtrace; set -e
+#!/bin/bash
 
-TESTGRID_DIR=/opt/testgrid/workspace
-INFRA_JSON='infra.json'
+set -o xtrace
+
+WORKING_DIR=$(pwd)
 PRODUCT_REPOSITORY=$1
 PRODUCT_REPOSITORY_BRANCH=$2
 PRODUCT_NAME=$3
 PRODUCT_VERSION=$4
+GIT_USER=$5
+GIT_PASS=$6
+
 PRODUCT_REPOSITORY_NAME=$(echo $PRODUCT_REPOSITORY | rev | cut -d'/' -f1 | rev | cut -d'.' -f1)
-PRODUCT_REPOSITORY_PACK_DIR="$TESTGRID_DIR/$PRODUCT_REPOSITORY_NAME/distribution/target"
-INT_TEST_MODULE_DIR="$TESTGRID_DIR/$PRODUCT_REPOSITORY_NAME/integration"
+LOCAL_PRODUCT_PACK_LOCATION="/root/.wum3/products/$PRODUCT_NAME/$PRODUCT_VERSION/full"
+PRODUCT_REPOSITORY_PACK_DIR="$WORKING_DIR/$PRODUCT_REPOSITORY_NAME/distribution/target"
+INT_TEST_MODULE_DIR="$WORKING_DIR/$PRODUCT_REPOSITORY_NAME/integration"
+NEXUS_SCRIPT_NAME="uat-nexus-settings.xml"
+
 # cloud formation properties
 CFN_PROP_FILE="${TESTGRID_DIR}/cfn-props.properties"
 JDK_TYPE=$(grep -w "JDK_TYPE" ${CFN_PROP_FILE} | cut -d"=" -f2)
@@ -35,16 +41,9 @@ CF_DB_USERNAME=$(grep -w "CF_DB_USERNAME" ${CFN_PROP_FILE} | cut -d"=" -f2)
 CF_DB_HOST=$(grep -w "CF_DB_HOST" ${CFN_PROP_FILE} | cut -d"=" -f2)
 CF_DB_PORT=$(grep -w "CF_DB_PORT" ${CFN_PROP_FILE} | cut -d"=" -f2)
 CF_DB_NAME=$(grep -w "SID" ${CFN_PROP_FILE} | cut -d"=" -f2)
-REMOTE_PACK_NAME=$(grep -w "REMOTE_PACK_NAME" ${CFN_PROP_FILE} | cut -d= -f2)
-
 
 function log_info(){
     echo "[INFO][$(date '+%Y-%m-%d %H:%M:%S')]: $1"
-}
-
-function log_error(){
-    echo "[ERROR][$(date '+%Y-%m-%d %H:%M:%S')]: $1"
-    exit 1
 }
 
 function install_jdk(){
@@ -59,31 +58,17 @@ function install_jdk(){
     echo $JAVA_HOME
 }
 
-source /etc/environment
+echo "Test script running"
 
 log_info "Clone Product repository"
-git clone https://$PRODUCT_REPOSITORY $TESTGRID_DIR/${PRODUCT_REPOSITORY_NAME} --branch $PRODUCT_REPOSITORY_BRANCH
-
-log_info "Exporting JDK"
-install_jdk ${JDK_TYPE}
-
-if [[ ${DB_TYPE} == "oracle-se2" ]]; then
-    # export env for oracle-19
-    export TestGrid=true
-    export oracle_url="jdbc:oracle:thin:@${CF_DB_HOST}:1521/${CF_DB_NAME}"
-    export oracle_user="MI_DB"
-    export oracle_pwd="${CF_DB_PASSWORD}"
-fi
+git clone https://$PRODUCT_REPOSITORY --branch $PRODUCT_REPOSITORY_BRANCH --single-branch
 
 mkdir -p $PRODUCT_REPOSITORY_PACK_DIR
 
 log_info "Copying product pack to Repository"
-[ -f $TESTGRID_DIR/$REMOTE_PACK_NAME.zip ] && rm -f $TESTGRID_DIR/$REMOTE_PACK_NAME.zip
-cd $TESTGRID_DIR && zip -qr $REMOTE_PACK_NAME.zip $REMOTE_PACK_NAME
-mv $TESTGRID_DIR/$REMOTE_PACK_NAME.zip $PRODUCT_REPOSITORY_PACK_DIR/.
+cp $LOCAL_PRODUCT_PACK_LOCATION/$PRODUCT_NAME-$PRODUCT_VERSION*.zip $PRODUCT_REPOSITORY_PACK_DIR/$PRODUCT_NAME-$PRODUCT_VERSION.zip
+mv $WORKING_DIR/$NEXUS_SCRIPT_NAME $INT_TEST_MODULE_DIR/.
 
-if [[ ${DB_TYPE} == "oracle-se2" ]]; then
-    cd $INT_TEST_MODULE_DIR  && mvn clean install -P db-tests -fae -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
-else
-    cd $INT_TEST_MODULE_DIR  && mvn clean install -fae -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
-fi
+install_jdk $JDK_TYPE
+
+cd $INT_TEST_MODULE_DIR  && mvn clean install -s $NEXUS_SCRIPT_NAME -fae -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
