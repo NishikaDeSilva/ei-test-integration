@@ -28,6 +28,7 @@ LOCAL_PRODUCT_PACK_LOCATION="/root/.wum3/products/$PRODUCT_NAME/$PRODUCT_VERSION
 PRODUCT_REPOSITORY_PACK_DIR="$WORKING_DIR/$PRODUCT_REPOSITORY_NAME/distribution/target"
 INT_TEST_MODULE_DIR="$WORKING_DIR/$PRODUCT_REPOSITORY_NAME/integration"
 NEXUS_SCRIPT_NAME="uat-nexus-settings.xml"
+INFRA_JSON="infra.json"
 
 # cloud formation properties
 CFN_PROP_FILE="${WORKING_DIR}/cfn-props.properties"
