@@ -22,6 +22,8 @@ PRODUCT_REPOSITORY=$1
 PRODUCT_REPOSITORY_BRANCH=$2
 PRODUCT_NAME=$3
 PRODUCT_VERSION=$4
+GIT_USER=$5
+GIT_PASS=$6
 
 PRODUCT_REPOSITORY_NAME=$(echo $PRODUCT_REPOSITORY | rev | cut -d'/' -f1 | rev | cut -d'.' -f1)
 LOCAL_PRODUCT_PACK_LOCATION="/root/.wum3/products/$PRODUCT_NAME/$PRODUCT_VERSION/full"
@@ -60,7 +62,7 @@ function install_jdk(){
 echo "Test script running"
 
 log_info "Clone Product repository"
-git clone https://$PRODUCT_REPOSITORY --branch $PRODUCT_REPOSITORY_BRANCH --single-branch
+git clone https://${GIT_USER}:${GIT_PASS}@$PRODUCT_REPOSITORY --branch $PRODUCT_REPOSITORY_BRANCH --single-branch
 
 mkdir -p $PRODUCT_REPOSITORY_PACK_DIR
 
